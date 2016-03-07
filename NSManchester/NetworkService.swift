@@ -14,38 +14,36 @@ class NetworkService : NSObject {
     
     func update() {
         
-        let sessionConfig = NSURLSessionConfiguration.defaultSessionConfiguration()
-        let session = NSURLSession(configuration: sessionConfig, delegate: nil, delegateQueue: nil)
-        let request = NSMutableURLRequest(URL: NSURL(string: "http://nsmanchester.github.io/config/nsmanchester.json")!)
-        request.HTTPMethod = "GET"
-        let task = session.dataTaskWithRequest(request, completionHandler: { (data: NSData?, response: NSURLResponse?, error: NSError?) -> Void in
-            
-            if (error == nil) {
-                let statusCode = (response as! NSHTTPURLResponse).statusCode
-                print("Success: \(statusCode)")
-                
-                if let parsedData = ParsingService().parse(data!)
-                {
-                    
-                    let text = String(data: data!, encoding: NSUTF8StringEncoding)
-                    print(parsedData)
-                    let file = "nsmanchester.json"
-                    if let dir : NSString = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.AllDomainsMask, true).first {
-                        let path = dir.stringByAppendingPathComponent(file);
-                        
-                        do {
-                            
-                            try text!.writeToFile(path, atomically: false, encoding: NSUTF8StringEncoding)
-                            NSNotificationCenter.defaultCenter().postNotificationName(NSMNetworkUpdateNotification, object: nil)
-                        }
-                        catch {
-                        }
-                    }
-                }
+        let session = NSURLSession.sharedSession()
+        let request = NSURLRequest(URL: NSURL(string: "http://nsmanchester.github.io/config/nsmanchester.json")!)
+        
+        let task = session.dataTaskWithRequest(request, completionHandler: { (data: NSData?, response: NSURLResponse?, error: NSError?) in
+            if let error = error {
+                print("Failure:", error.localizedDescription);
+                return
             }
-            else {
-                // Failure
-                print("Failure:", error!.localizedDescription);
+            
+            guard let data = data else {
+                print("Failure: No data received");
+                return
+            }
+            guard let response = response as? NSHTTPURLResponse else {
+                print("Failure: Unexpected response");
+                return
+            }
+            guard 200...299 ~= response.statusCode else {
+                print("Failure: Unexpected response code'\(response.statusCode)'");
+                return
+            }
+            
+            if let parsedData = ParsingService().parse(data) {
+                print(parsedData)
+                if let dir: NSString = NSSearchPathForDirectoriesInDomains(NSSearchPathDirectory.DocumentDirectory, NSSearchPathDomainMask.AllDomainsMask, true).first {
+                    let file = "nsmanchester.json"
+                    let path = dir.stringByAppendingPathComponent(file);
+                    data.writeToFile(path, atomically: true)
+                    NSNotificationCenter.defaultCenter().postNotificationName(NSMNetworkUpdateNotification, object: nil)
+                }
             }
         });
         task.resume()
