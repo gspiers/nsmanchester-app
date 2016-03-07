@@ -106,6 +106,7 @@ class MenuViewController: UIViewController, UITableViewDataSource, UITableViewDe
     // Notifications
     
     @objc func reload(notification: NSNotification){
+        menuOptions = DataService().mainMenuOptions()
         dispatch_async(dispatch_get_main_queue()) { [unowned self] in
             self.tableView?.reloadData()
         }
